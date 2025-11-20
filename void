@@ -1,0 +1,48 @@
+#!/bin/bash
+# VOID Unified CLI Runner
+
+cd "$(dirname "$0")/src"
+
+# Check subcommand
+if [ "$1" != "run" ]; then
+    echo "Usage: void run <api|worker|job> [JOB_NAME]"
+    echo ""
+    echo "Commands:"
+    echo "  void run api     - Start FastAPI development server"
+    echo "  void run worker  - Start SQS consumer worker"
+    echo "  void run job <NAME> - Execute CLI job"
+    echo ""
+    echo "Examples:"
+    echo "  ./void run api"
+    echo "  ./void run worker"
+    echo "  ./void run job cleanup_deleted_items"
+    exit 1
+fi
+
+# Handle run subcommand
+case "$2" in
+    api)
+        python -m uvicorn entrypoints.api.app:app \
+            --reload \
+            --host 0.0.0.0 \
+            --port 8000
+        ;;
+    worker)
+        python -m entrypoints.worker.app
+        ;;
+    job)
+        if [ -z "$3" ]; then
+            echo "Error: Job name required"
+            echo "Usage: void run job <JOB_NAME>"
+            echo ""
+            echo "Available jobs:"
+            python -m entrypoints.cli.app job list
+            exit 1
+        fi
+        python -m entrypoints.cli.app job run "$3"
+        ;;
+    *)
+        echo "Usage: void run <api|worker|job> [JOB_NAME]"
+        exit 1
+        ;;
+esac

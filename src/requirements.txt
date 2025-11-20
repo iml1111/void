@@ -1,0 +1,25 @@
+# FastAPI
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# MongoDB
+motor
+pymongo
+
+# AWS
+boto3
+botocore
+
+# HTTP Client
+httpx
+
+# CLI
+click
+
+# Logging
+loguru
+
+# Development
+python-dotenv
