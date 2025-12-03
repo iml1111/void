@@ -8,7 +8,6 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from loguru import logger
-from service_layer.exceptions import ServiceError
 
 
 def _serialize_body_for_json(body) -> str | dict | None:
@@ -84,20 +83,6 @@ def setup_exception_handlers(app: FastAPI) -> None:
                 "body": _serialize_body_for_json(
                     exc.body
                 ) if hasattr(exc, 'body') else None,
-            }
-        )
-
-    @app.exception_handler(ServiceError)
-    async def service_error_handler(request: Request, exc: ServiceError):
-        """Handle all service layer errors based on status_code attribute"""
-        if exc.status_code >= 500:
-            logger.error(f"Service error: {exc}")
-
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={
-                "error": exc.error_type,
-                "detail": str(exc)
             }
         )
 

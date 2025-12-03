@@ -3,8 +3,9 @@ Item API Endpoints
 
 CRUD operations for Item entity.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
+from domain.exceptions import ItemNotFoundError, ItemValidationError
 from entrypoints.api.dependencies import get_item_service
 from entrypoints.api.schemas.item import ItemCreateRequest, ItemResponse
 from service_layer.application.item_service import ItemService
@@ -27,14 +28,16 @@ async def create_item(
     Returns:
         Created item
     """
-    item_id = await service.create_item(
-        name=request.name,
-        description=request.description,
-        status=request.status,
-        metadata=request.metadata
-    )
-
-    item = await service.get_item(item_id)
+    try:
+        item_id = await service.create_item(
+            name=request.name,
+            description=request.description,
+            status=request.status,
+            metadata=request.metadata
+        )
+        item = await service.get_item(item_id)
+    except ItemValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return ItemResponse(
         id=item.id,
@@ -48,7 +51,7 @@ async def create_item(
 
 
 @router.get("/{item_id}", response_model=ItemResponse)
-async def get_item(
+async def get_item_by_id(
     item_id: str,
     service: ItemService = Depends(get_item_service)
 ):
@@ -62,7 +65,10 @@ async def get_item(
     Returns:
         Item details
     """
-    item = await service.get_item(item_id)
+    try:
+        item = await service.get_item(item_id)
+    except ItemNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     return ItemResponse(
         id=item.id,

@@ -157,29 +157,36 @@ item = await self._item_repo.get_by_id(item_id)
 ---
 
 ### 5. Exception Pattern
-**Service Layer 예외에 `status_code`/`error_type` 클래스 속성 추가**
+**Domain 예외는 순수 Python, 각 API Route에서 HTTPException으로 변환**
 
 ```python
-# service_layer/exceptions.py
-class ServiceError(Exception):
-    status_code: int = 500
-    error_type: str = "Service Error"
+# domain/exceptions.py - 순수 Python (HTTP 개념 없음)
+class DomainError(Exception):
+    """Base exception for all domain errors"""
+    pass
 
-class ItemNotFoundError(ServiceError):
-    status_code = 404
-    error_type = "Not Found"
+class EntityNotFoundError(DomainError):
+    """Entity with given ID does not exist"""
+    pass
 
-class ItemValidationError(ServiceError):
-    status_code = 400
-    error_type = "Validation Error"
+class ItemNotFoundError(EntityNotFoundError):
+    """Item with given ID does not exist"""
+    pass
 
-# entrypoints/api/exceptions.py - 단일 핸들러로 처리
-@app.exception_handler(ServiceError)
-async def service_error_handler(request: Request, exc: ServiceError):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": exc.error_type, "detail": str(exc)}
-    )
+class ItemValidationError(DomainError):
+    """Item data validation failed"""
+    pass
+
+# API Route - try-except + HTTPException 변환
+@router.get("/{item_id}")
+async def get_item(item_id: str, service = Depends(get_item_service)):
+    try:
+        item = await service.get_item(item_id)
+    except ItemNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return ItemResponse(...)
+
+# 5XX 에러는 @app.exception_handler(Exception)이 자동 처리
 ```
 
 ---
@@ -298,5 +305,6 @@ SQS_QUEUE_URL=https://sqs.ap-northeast-2.amazonaws.com/xxx/queue.fifo
 2. `entrypoints/cli/jobs/__init__.py` - JOB_MODULES에 추가
 
 ### New Exception
-1. `service_layer/exceptions.py` - `ServiceError` 상속, `status_code`/`error_type` 정의
-2. API 핸들러 자동 처리 (별도 등록 불필요)
+1. `domain/exceptions.py` - `DomainError` 또는 적절한 기본 예외 상속
+2. `domain/__init__.py` - 예외 export 추가
+3. API Route에서 `try-except` + `HTTPException` 변환

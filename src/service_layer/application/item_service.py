@@ -11,7 +11,7 @@ from adapters.repositories.mongodb.item import MongoItemRepository
 from adapters.uow.mongo_unit_of_work import MongoUnitOfWork
 from domain.entities.item import ItemEntity
 from domain.value_objects.item_enums import ItemStatus
-from service_layer.exceptions import ItemNotFoundError, ItemValidationError
+from domain.exceptions import ItemNotFoundError, ItemValidationError
 
 
 class ItemService:
