@@ -208,7 +208,7 @@ async def lifespan(app: FastAPI):
 
 ### 7. Task/Job Registry Pattern
 **Worker**: `@task` 데코레이터로 SQS 메시지 핸들러 등록
-**CLI**: `@job` 데코레이터로 cronjob/background job 등록
+**CLI**: `@job` 데코레이터로 cronjob/background job 등록 (함수 시그니처 기반 Click 옵션 자동 생성)
 
 ```python
 # Worker task (Write 예시)
@@ -217,11 +217,13 @@ async def process_item(data: Dict[str, Any]) -> None:
     service = ItemService(db_client)
     await service.create_item(name=data["name"], ...)
 
-# CLI job (Read 예시)
+# CLI job - 함수 파라미터가 자동으로 --option으로 변환됨
 @job
 async def process_item(item_id: str) -> None:
+    """Process item by ID"""  # docstring이 --help에 표시됨
     service = ItemService(db_client)
     item = await service.get_item(item_id)
+# 실행: ./void run job process-item --item-id xxx
 ```
 
 ---
@@ -244,11 +246,17 @@ async def process_item(item_id: str) -> None:
 
 ### CLI (Click)
 ```bash
-./void run job <JOB_NAME>
-./void run job process_item --item-id 507f1f77bcf86cd799439011
+./void run job                    # 도움말 표시
+./void run job list               # 등록된 job 목록
+./void run job process-item --help                              # job 도움말
+./void run job process-item --item-id 507f1f77bcf86cd799439011  # job 실행
 ```
 
-**구조**: `app.py` → `dependencies.initialize()` → `register_all_jobs()` → `handler.execute()`
+**구조**: `app.py` → `register_all_jobs()` → 동적 Click Command 생성
+**특징**:
+- `@job` 데코레이터가 함수 시그니처를 분석하여 Click 옵션 자동 생성
+- snake_case 함수명 → kebab-case 커맨드명 변환
+- 함수 docstring이 `--help`에 표시됨
 
 ---
 
