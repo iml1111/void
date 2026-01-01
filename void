@@ -39,7 +39,7 @@ case "$2" in
             python -m entrypoints.cli.app job list
             exit 1
         fi
-        python -m entrypoints.cli.app job run "$3"
+        python -m entrypoints.cli.app job "${@:3}"
         ;;
     *)
         echo "Usage: void run <api|worker|job> [JOB_NAME]"

@@ -16,12 +16,13 @@ class JobHandler:
     Dispatches job execution to registered handlers.
     """
 
-    async def execute(self, job_name: str) -> None:
+    async def execute(self, job_name: str, **kwargs) -> None:
         """
         Execute job by name using registry lookup
 
         Args:
             job_name: Job identifier (registered function name)
+            **kwargs: Job arguments to pass to handler
         """
         # Get handler from registry
         handler = JobRegistry.get(job_name)
@@ -34,10 +35,10 @@ class JobHandler:
             )
 
         # Execute handler
-        logger.info(f"Executing job: {job_name}")
+        logger.info(f"Executing job: {job_name} with args: {kwargs}")
 
         try:
-            await handler()
+            await handler(**kwargs)
             logger.info(f"Job completed successfully: {job_name}")
         except Exception as e:
             logger.error(f"Job execution failed: {job_name}, error: {e}", exc_info=True)

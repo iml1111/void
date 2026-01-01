@@ -18,7 +18,7 @@ async def process_item(item_id: str) -> None:
     Demonstrates get_item (Read) usage pattern.
 
     Example:
-        void job run process_item --item-id 507f1f77bcf86cd799439011
+        ./void run job process-item --item-id 507f1f77bcf86cd799439011
     """
     logger.info(f"Starting process_item job for item_id: {item_id}")
 
