@@ -31,14 +31,6 @@ case "$2" in
         python -m entrypoints.worker.app
         ;;
     job)
-        if [ -z "$3" ]; then
-            echo "Error: Job name required"
-            echo "Usage: void run job <JOB_NAME>"
-            echo ""
-            echo "Available jobs:"
-            python -m entrypoints.cli.app job list
-            exit 1
-        fi
         python -m entrypoints.cli.app job "${@:3}"
         ;;
     *)

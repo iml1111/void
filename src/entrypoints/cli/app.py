@@ -47,10 +47,12 @@ def cli():
     pass
 
 
-@cli.group(name="job")
-def job_group():
+@cli.group(name="job", invoke_without_command=True)
+@click.pass_context
+def job_group(ctx):
     """Execute background jobs and cronjobs"""
-    pass
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
 
 
 @job_group.command(name="list")
