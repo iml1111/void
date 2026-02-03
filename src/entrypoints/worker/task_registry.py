@@ -1,17 +1,17 @@
 """
 Task Registry Module
 
-Provides decorator-based task handler registration for extensible task routing
+Provides decorator-based task handler registration for extensible task routing.
+Supports immediate registration at decorator time (auto-discovery pattern).
 """
-from typing import Callable, Dict, Optional
-from functools import wraps
+from typing import Callable, Dict, List, Optional
 
 
 class TaskRegistry:
     """
     Task handler registry for dynamic routing
 
-    Provides centralized registry for task handlers with automatic discovery
+    Provides centralized registry for task handlers with automatic discovery.
     """
 
     _handlers: Dict[str, Callable] = {}
@@ -19,13 +19,19 @@ class TaskRegistry:
     @classmethod
     def register(cls, task_name: str, handler: Callable) -> None:
         """
-        Register task handler (bound method)
+        Register task handler
 
         Args:
             task_name: Task name identifier
-            handler: Task handler function (bound method)
+            handler: Task handler function
+
+        Note:
+            Allows duplicate registration of same handler (idempotent).
+            Raises error only if different handler attempts to use same name.
         """
         if task_name in cls._handlers:
+            if cls._handlers[task_name] is handler:
+                return  # Same handler, idempotent
             raise ValueError(f"Task handler already registered: {task_name}")
 
         cls._handlers[task_name] = handler
@@ -41,7 +47,17 @@ class TaskRegistry:
         return cls._handlers.get(task_name)
 
     @classmethod
-    def list_tasks(cls) -> list[str]:
+    def get_all_handlers(cls) -> Dict[str, Callable]:
+        """
+        Get all registered handlers
+
+        Returns:
+            Dict of task_name -> handler mappings
+        """
+        return cls._handlers.copy()
+
+    @classmethod
+    def list_tasks(cls) -> List[str]:
         """
         List all registered task names
         """
@@ -59,18 +75,9 @@ class TaskRegistry:
 
 def task(func: Callable) -> Callable:
     """
-    Decorator for marking task handler functions
+    Decorator for marking and registering task handler functions
 
-    Automatically uses function name as task name.
-    Similar to FastAPI's @router.get() decorator pattern.
-
-    Args:
-        func: Task handler function
-
-    Note:
-        - Function name becomes the task name
-        - Actual registration happens in register_all_tasks()
-        - Handler must accept (data: Dict[str, Any]) -> None signature
+    Immediately registers the handler with TaskRegistry at decoration time.
 
     Example:
         @task
@@ -78,12 +85,8 @@ def task(func: Callable) -> Callable:
             item_id = data['item_id']
             # Process item...
     """
-    # Use function name as task name
-    func._task_name = func.__name__
+    task_name = func.__name__
+    TaskRegistry.register(task_name, func)
     func._is_task_handler = True
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-
-    return wrapper
+    func._task_name = task_name
+    return func
