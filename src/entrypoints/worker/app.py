@@ -7,7 +7,7 @@ import asyncio
 from loguru import logger
 
 from config import Config
-from .tasks import register_all_tasks
+from .tasks import discover_tasks
 from .task_registry import TaskRegistry
 from .dependencies import WorkerDependencies
 from .consumer import SQSConsumer
@@ -24,8 +24,8 @@ async def main():
     WorkerDependencies.initialize(config)
     logger.info("Worker dependencies initialized")
 
-    # Initialize and register all task handlers
-    register_all_tasks()
+    # Auto-discover and import all task handlers
+    discover_tasks()
     logger.info(f"Registered task handlers: {TaskRegistry.list_tasks()}")
 
     # Create and start consumer
