@@ -206,18 +206,20 @@ async def lifespan(app: FastAPI):
 
 ---
 
-### 7. Task/Job Registry Pattern
-**Worker**: `@task` 데코레이터로 SQS 메시지 핸들러 등록
-**CLI**: `@job` 데코레이터로 cronjob/background job 등록 (함수 시그니처 기반 Click 옵션 자동 생성)
+### 7. Task/Job Registry Pattern (Auto-Discovery)
+**1단계 등록**: 데코레이터만 붙이면 자동 등록 (패키지 내 파일 추가 시 `__init__.py` 수정 불필요)
+
+**Worker**: `@task` 데코레이터로 SQS 메시지 핸들러 즉시 등록
+**CLI**: `@job` 데코레이터로 cronjob/background job 즉시 등록 (함수 시그니처 기반 Click 옵션 자동 생성)
 
 ```python
-# Worker task (Write 예시)
+# Worker task - @task 붙이면 즉시 TaskRegistry에 등록
 @task
 async def process_item(data: Dict[str, Any]) -> None:
     service = ItemService(db_client)
     await service.create_item(name=data["name"], ...)
 
-# CLI job - 함수 파라미터가 자동으로 --option으로 변환됨
+# CLI job - @job 붙이면 즉시 JobRegistry에 등록
 @job
 async def process_item(item_id: str) -> None:
     """Process item by ID"""  # docstring이 --help에 표시됨
@@ -225,6 +227,11 @@ async def process_item(item_id: str) -> None:
     item = await service.get_item(item_id)
 # 실행: ./void run job process-item --item-id xxx
 ```
+
+**Auto-Discovery 동작 원리**:
+- `discover_and_import_tasks()` / `discover_and_import_jobs()` 함수가 패키지 내 모든 `.py` 파일을 재귀적으로 import
+- `@task` / `@job` 데코레이터가 실행되면서 즉시 Registry에 등록
+- 새 파일 추가 시 `__init__.py` 수정 없이 자동 인식
 
 ---
 
@@ -242,7 +249,7 @@ async def process_item(item_id: str) -> None:
 ./void run worker
 ```
 
-**구조**: `app.py` → `dependencies.initialize()` → `register_all_tasks()` → `consumer.start()`
+**구조**: `app.py` → `dependencies.initialize()` → `discover_and_import_tasks()` → `consumer.start()`
 
 ### CLI (Click)
 ```bash
@@ -252,11 +259,12 @@ async def process_item(item_id: str) -> None:
 ./void run job process-item --item-id 507f1f77bcf86cd799439011  # job 실행
 ```
 
-**구조**: `app.py` → `register_all_jobs()` → 동적 Click Command 생성
+**구조**: `app.py` → `discover_and_import_jobs()` → `create_all_job_commands()` → 동적 Click Command 생성
 **특징**:
 - `@job` 데코레이터가 함수 시그니처를 분석하여 Click 옵션 자동 생성
 - snake_case 함수명 → kebab-case 커맨드명 변환
 - 함수 docstring이 `--help`에 표시됨
+- 새 파일 추가 시 `__init__.py` 수정 불필요
 
 ---
 
@@ -306,11 +314,11 @@ SQS_QUEUE_URL=https://sqs.ap-northeast-2.amazonaws.com/xxx/queue.fifo
 
 ### New Worker Task
 1. `entrypoints/worker/tasks/xxx.py` - @task 데코레이터로 핸들러 정의
-2. `entrypoints/worker/tasks/__init__.py` - TASK_MODULES에 추가
+   - `__init__.py` 수정 불필요 (Auto-discovery)
 
 ### New CLI Job
 1. `entrypoints/cli/jobs/xxx.py` - @job 데코레이터로 핸들러 정의
-2. `entrypoints/cli/jobs/__init__.py` - JOB_MODULES에 추가
+   - `__init__.py` 수정 불필요 (Auto-discovery)
 
 ### New Exception
 1. `domain/exceptions.py` - `DomainError` 또는 적절한 기본 예외 상속

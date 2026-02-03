@@ -3,10 +3,11 @@ Job Registry Module
 
 Provides decorator-based job handler registration for CLI jobs.
 Supports argument passing via Click options auto-generated from function signature.
+Uses immediate registration at decorator time (auto-discovery pattern).
 """
-import inspect
 import asyncio
-from typing import Callable, Dict, Optional
+import inspect
+from typing import Callable, Dict, List, Optional
 
 import click
 
@@ -28,8 +29,14 @@ class JobRegistry:
         Args:
             job_name: Job identifier (function name)
             handler: Async job handler function
+
+        Note:
+            Allows duplicate registration of same handler (idempotent).
+            Raises error only if different handler attempts to use same name.
         """
         if job_name in cls._handlers:
+            if cls._handlers[job_name] is handler:
+                return  # Same handler, idempotent
             raise ValueError(f"Job already registered: {job_name}")
         cls._handlers[job_name] = handler
 
@@ -44,7 +51,17 @@ class JobRegistry:
         return cls._handlers.get(job_name)
 
     @classmethod
-    def list_jobs(cls) -> list[str]:
+    def get_all_handlers(cls) -> Dict[str, Callable]:
+        """
+        Get all registered handlers
+
+        Returns:
+            Dict of job_name -> handler mappings
+        """
+        return cls._handlers.copy()
+
+    @classmethod
+    def list_jobs(cls) -> List[str]:
         """
         List all registered job names
         """
@@ -62,13 +79,9 @@ class JobRegistry:
 
 def job(func: Callable) -> Callable:
     """
-    Decorator for marking job handler functions
+    Decorator for marking and registering job handler functions
 
-    Automatically uses function name as job name.
-    Stores function signature for Click option generation.
-
-    Args:
-        func: Async job handler function
+    Immediately registers the handler with JobRegistry at decoration time.
 
     Example:
         @job
@@ -79,6 +92,7 @@ def job(func: Callable) -> Callable:
     func._job_name = func.__name__
     func._is_job_handler = True
     func._job_signature = inspect.signature(func)
+    JobRegistry.register(func._job_name, func)
     return func
 
 
@@ -105,14 +119,14 @@ def create_job_command(
 
     # Build Click options from signature (all STRING type)
     params = []
-    for name, param in sig.parameters.items():
+    for param_name, param in sig.parameters.items():
         has_default = param.default is not inspect.Parameter.empty
         params.append(click.Option(
-            ['--' + name.replace('_', '-')],
+            ['--' + param_name.replace('_', '-')],
             type=click.STRING,
             required=not has_default,
             default=param.default if has_default else None,
-            help=f"{name} parameter",
+            help=f"{param_name} parameter",
         ))
 
     def callback(**kwargs):
@@ -134,3 +148,26 @@ def create_job_command(
         params=params,
         help=handler.__doc__,
     )
+
+
+def create_all_job_commands(
+    job_group: click.Group,
+    initialize_deps: Callable,
+    cleanup_deps: Callable
+) -> None:
+    """
+    Create Click Commands for all registered jobs
+
+    Iterates through JobRegistry and creates Click commands for each handler.
+
+    Args:
+        job_group: Click Group to add commands to
+        initialize_deps: Dependency initialization function
+        cleanup_deps: Dependency cleanup function
+    """
+    from loguru import logger
+
+    for handler in JobRegistry.get_all_handlers().values():
+        cmd = create_job_command(handler, initialize_deps, cleanup_deps)
+        job_group.add_command(cmd)
+        logger.debug(f"Registered job command: {cmd.name}")

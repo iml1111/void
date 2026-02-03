@@ -3,52 +3,52 @@ Job Handlers (Entry Point)
 
 CLI job handlers that delegate to Service Layer.
 Similar to Worker task handlers pattern.
-"""
-from typing import Callable
 
-import click
+Auto-discovery: Just add @job decorator to any function in this package.
+No need to modify this file when adding new jobs.
+"""
+import importlib
+from pathlib import Path
+
 from loguru import logger
 
-from entrypoints.cli.job_registry import JobRegistry, create_job_command
-from . import sample
 
-
-# List of all job modules
-JOB_MODULES = [
-    sample,
-]
-
-
-def register_all_jobs(
-    job_group: click.Group,
-    initialize_deps: Callable,
-    cleanup_deps: Callable
-) -> None:
+def discover_and_import_jobs() -> None:
     """
-    Auto-discover and register all job handlers as Click commands
+    Auto-discover and import all job modules recursively
 
-    Scans all job modules for functions decorated with @job.
-    Creates Click commands with auto-generated options from function signature.
+    Scans all .py files in this package and subpackages.
+    @job decorated functions are registered automatically on import.
+    """
+    jobs_dir = Path(__file__).parent
+    package_name = __name__
+    _import_modules_recursive(jobs_dir, package_name)
+
+
+def _import_modules_recursive(directory: Path, package_prefix: str) -> None:
+    """
+    Recursively import all Python modules in directory
 
     Args:
-        job_group: Click Group to add commands to
-        initialize_deps: Dependency initialization function
-        cleanup_deps: Dependency cleanup function
+        directory: Directory to scan
+        package_prefix: Python package prefix for imports
     """
-    for module in JOB_MODULES:
-        module_name = module.__name__.split('.')[-1]
+    for item in sorted(directory.iterdir()):
+        # Skip __pycache__, hidden files, and dunder modules
+        if item.name.startswith(('__', '.')):
+            continue
 
-        for name in dir(module):
-            func = getattr(module, name)
-            if callable(func) and hasattr(func, '_is_job_handler'):
-                # Create Click command from handler
-                cmd = create_job_command(func, initialize_deps, cleanup_deps)
-                job_group.add_command(cmd)
+        if item.is_file() and item.suffix == '.py':
+            module_name = f"{package_prefix}.{item.stem}"
+            try:
+                importlib.import_module(module_name)
+                logger.debug(f"Imported job module: {module_name}")
+            except Exception as e:
+                logger.error(f"Failed to import {module_name}: {e}")
+                raise
 
-                # Register in JobRegistry for programmatic access
-                JobRegistry.register(func._job_name, func)
-
-                logger.debug(
-                    f"Registered job: {cmd.name} "
-                    f"(module={module_name})"
-                )
+        elif item.is_dir():
+            # Check if it's a Python package (has __init__.py)
+            init_file = item / "__init__.py"
+            if init_file.exists():
+                _import_modules_recursive(item, f"{package_prefix}.{item.name}")

@@ -9,8 +9,8 @@ from loguru import logger
 from config import Config
 from __about__ import __version__
 from .dependencies import CLIDependencies
-from .jobs import register_all_jobs
-from .job_registry import JobRegistry
+from .jobs import discover_and_import_jobs
+from .job_registry import JobRegistry, create_all_job_commands
 
 
 # Global state for lazy initialization
@@ -75,8 +75,9 @@ def list_jobs():
         click.echo(f"  - {cmd_name}")
 
 
-# Register all jobs at module load time
-register_all_jobs(job_group, _init_deps, _cleanup_deps)
+# Auto-discover and register all jobs at module load time
+discover_and_import_jobs()
+create_all_job_commands(job_group, _init_deps, _cleanup_deps)
 
 
 if __name__ == "__main__":
