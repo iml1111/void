@@ -62,7 +62,7 @@ src/
 │   ├── entities/        # Domain entities
 │   ├── ports/           # Abstract interfaces
 │   └── value_objects/   # Enums and value objects
-├── service_layer/       # Application services
+├── services/            # Application services
 │   ├── application/     # Use case implementations
 │   └── exceptions.py    # Business exceptions
 ├── adapters/            # Infrastructure implementations
@@ -126,7 +126,7 @@ This project follows **Domain-Driven Design (DDD)** and **Hexagonal Architecture
    - Pure Python with no external dependencies
    - Contains entities, value objects, and port interfaces
 
-2. **Service Layer** (`service_layer/`)
+2. **Service Layer** (`services/`)
    - Application services implementing use cases
    - Orchestrates domain logic and infrastructure
 
@@ -176,7 +176,7 @@ This project follows **Domain-Driven Design (DDD)** and **Hexagonal Architecture
 
 ### Adding a New Exception
 
-1. Define exception in `service_layer/exceptions.py` inheriting from `ServiceError`
+1. Define exception in `services/exceptions.py` inheriting from `ServiceError`
 2. Set `status_code` and `error_type` class attributes
 3. Exception is automatically handled by API (no additional registration needed)
 

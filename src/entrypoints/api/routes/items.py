@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from domain.exceptions import ItemNotFoundError, ItemValidationError
 from entrypoints.api.dependencies import get_item_service
 from entrypoints.api.schemas.item import ItemCreateRequest, ItemResponse
-from service_layer.application.item_service import ItemService
+from services.application.item_service import ItemService
 
 router = APIRouter()
 

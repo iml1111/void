@@ -11,7 +11,7 @@ from loguru import logger
 from domain.value_objects.item_enums import ItemStatus
 from entrypoints.worker.dependencies import WorkerDependencies
 from entrypoints.worker.task_registry import task
-from service_layer.application.item_service import ItemService
+from services.application.item_service import ItemService
 
 
 @task

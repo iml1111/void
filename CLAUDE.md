@@ -38,7 +38,7 @@ src/
 │   ├── entities/        # Domain entities with identity-based equality
 │   ├── ports/           # Abstract interfaces (repositories)
 │   └── value_objects/   # Enums and value objects
-├── service_layer/       # Use Cases
+├── services/            # Use Cases
 │   ├── application/     # Application services
 │   └── exceptions.py    # Service layer exceptions (with status_code/error_type)
 ├── adapters/            # Infrastructure implementations

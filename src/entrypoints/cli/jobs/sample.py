@@ -7,7 +7,7 @@ from loguru import logger
 
 from entrypoints.cli.dependencies import CLIDependencies
 from entrypoints.cli.job_registry import job
-from service_layer.application.item_service import ItemService
+from services.application.item_service import ItemService
 
 
 @job
