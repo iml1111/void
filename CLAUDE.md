@@ -6,27 +6,27 @@
 
 ## Project Overview
 
-VOID는 DDD + Hexagonal Architecture 패턴을 따르는 FastAPI 보일러플레이트입니다.
-실제 서비스 개발 시 clone하여 사용할 수 있도록 설계되었습니다.
+VOID is a FastAPI boilerplate following DDD + Hexagonal Architecture patterns.
+It is designed to be cloned and used as a starting point for real service development.
 
-**기술 스택**: Python 3.9+ | FastAPI | MongoDB (Motor) | AWS SQS (FIFO) | httpx
+**Tech Stack**: Python 3.9+ | FastAPI | MongoDB (Motor) | AWS SQS (FIFO) | httpx
 
 ---
 
 ## Architecture Principles
 
 ### 1. Domain-Driven Design (DDD)
-- **Domain Layer**: 순수 Python, 외부 의존성 없음
-- **Service Layer**: Use Case 구현, Domain-Infrastructure 조율
-- **Infrastructure Layer**: 외부 시스템 통합 (DB, API)
+- **Domain Layer**: Pure Python, no external dependencies
+- **Service Layer**: Use Case implementation, orchestrates Domain and Infrastructure
+- **Infrastructure Layer**: External system integration (DB, API)
 
 ### 2. Hexagonal Pattern
-- **Port**: Interface (추상화) - `domain/ports/`
-- **Adapter**: 구현체 (기술 스택) - `adapters/`
-- Domain → Port 의존, Adapter는 Domain 독립
+- **Port**: Interface (abstraction) - `domain/ports/`
+- **Adapter**: Implementation (tech stack) - `adapters/`
+- Domain depends on Port, Adapter is independent of Domain
 
 ### 3. Identity-Based Equality
-Entity는 ID로 식별 (`__eq__`, `__hash__`), Set/Dict 키로 사용 가능
+Entities are identified by ID (`__eq__`, `__hash__`), usable as Set/Dict keys
 
 ---
 
@@ -60,7 +60,7 @@ src/
 ## Key Design Patterns
 
 ### 1. Async/Await Pattern
-**전체 프로젝트에서 async/await 일관 사용**
+**Consistent async/await usage across the entire project**
 
 ```python
 # Repository Layer
@@ -69,7 +69,7 @@ async def create(self, entity: ItemEntity) -> str:
     result = await self._adapter.insert_one(doc)
     return str(result.inserted_id)
 
-# Service Layer (단일 read: 직접 repository 호출)
+# Service Layer (single read: direct repository call)
 async def get_item(self, item_id: str) -> ItemEntity:
     item = await self._item_repo.get_by_id(item_id)
     if not item:
@@ -80,7 +80,7 @@ async def get_item(self, item_id: str) -> ItemEntity:
 ---
 
 ### 2. BaseEntity Pattern
-**요구사항**: `@dataclass(eq=False, frozen=True)`, `from_dict()`, `validate()`, Identity-based equality
+**Requirements**: `@dataclass(eq=False, frozen=True)`, `from_dict()`, `validate()`, Identity-based equality
 
 ```python
 @dataclass(eq=False, frozen=True)
@@ -113,7 +113,7 @@ class ItemEntity(BaseEntity):
 ---
 
 ### 3. Repository Pattern
-**구조**: ABC Interface (Port) → MongoDB Implementation (Adapter)
+**Structure**: ABC Interface (Port) → MongoDB Implementation (Adapter)
 
 ```python
 # Port (domain/ports/item.py)
@@ -135,32 +135,32 @@ class MongoItemRepository(ItemRepository):
 ---
 
 ### 4. Unit of Work (UoW) Pattern
-**목적**: 다중 write 작업의 원자성 보장
+**Purpose**: Guarantee atomicity of multiple write operations
 
-**원칙**:
-- ✅ 2+ write가 원자적 처리 필요 시만 사용
-- ❌ 단일 read/write는 직접 repository 호출
+**Principles**:
+- Use only when 2+ writes require atomic processing
+- Single read/write should call the repository directly
 
 ```python
-# 다중 write: UoW
+# Multiple writes: UoW
 async with MongoUnitOfWork(db_client) as uow:
     await uow.item_repo.create(entity1)
     await uow.item_repo.create(entity2)
     await uow.commit()
 
-# 단일 read: 직접 호출
+# Single read: direct call
 item = await self._item_repo.get_by_id(item_id)
 ```
 
-**요구사항**: MongoDB Replica Set (트랜잭션 지원)
+**Requirement**: MongoDB Replica Set (transaction support)
 
 ---
 
 ### 5. Exception Pattern
-**Domain 예외는 순수 Python, 각 API Route에서 HTTPException으로 변환**
+**Domain exceptions are pure Python, converted to HTTPException at each API Route**
 
 ```python
-# domain/exceptions.py - 순수 Python (HTTP 개념 없음)
+# domain/exceptions.py - Pure Python (no HTTP concepts)
 class DomainError(Exception):
     """Base exception for all domain errors"""
     pass
@@ -177,7 +177,7 @@ class ItemValidationError(DomainError):
     """Item data validation failed"""
     pass
 
-# API Route - try-except + HTTPException 변환
+# API Route - try-except + HTTPException conversion
 @router.get("/{item_id}")
 async def get_item(item_id: str, service = Depends(get_item_service)):
     try:
@@ -186,13 +186,13 @@ async def get_item(item_id: str, service = Depends(get_item_service)):
         raise HTTPException(status_code=404, detail=str(e))
     return ItemResponse(...)
 
-# 5XX 에러는 @app.exception_handler(Exception)이 자동 처리
+# 5XX errors are automatically handled by @app.exception_handler(Exception)
 ```
 
 ---
 
 ### 6. Lifespan Singleton Pattern
-**목적**: 무거운 리소스(DB 커넥션 풀)를 앱 시작 시 1회 초기화
+**Purpose**: Initialize heavy resources (e.g., DB connection pool) once at app startup
 
 ```python
 @asynccontextmanager
@@ -207,31 +207,31 @@ async def lifespan(app: FastAPI):
 ---
 
 ### 7. Task/Job Registry Pattern (Auto-Discovery)
-**1단계 등록**: 데코레이터만 붙이면 자동 등록 (패키지 내 파일 추가 시 `__init__.py` 수정 불필요)
+**One-step registration**: Just attach the decorator for automatic registration (no `__init__.py` modification needed when adding new files to the package)
 
-**Worker**: `@task` 데코레이터로 SQS 메시지 핸들러 즉시 등록
-**CLI**: `@job` 데코레이터로 cronjob/background job 즉시 등록 (함수 시그니처 기반 Click 옵션 자동 생성)
+**Worker**: `@task` decorator immediately registers SQS message handlers
+**CLI**: `@job` decorator immediately registers cronjob/background jobs (auto-generates Click options based on function signature)
 
 ```python
-# Worker task - @task 붙이면 즉시 TaskRegistry에 등록
+# Worker task - @task immediately registers to TaskRegistry
 @task
 async def process_item(data: Dict[str, Any]) -> None:
     service = ItemService(db_client)
     await service.create_item(name=data["name"], ...)
 
-# CLI job - @job 붙이면 즉시 JobRegistry에 등록
+# CLI job - @job immediately registers to JobRegistry
 @job
 async def process_item(item_id: str) -> None:
-    """Process item by ID"""  # docstring이 --help에 표시됨
+    """Process item by ID"""  # docstring is displayed in --help
     service = ItemService(db_client)
     item = await service.get_item(item_id)
-# 실행: ./void run job process-item --item-id xxx
+# Run: ./void run job process-item --item-id xxx
 ```
 
-**Auto-Discovery 동작 원리**:
-- `discover_tasks()` / `discover_jobs()` 함수가 패키지 내 모든 `.py` 파일을 재귀적으로 import
-- `@task` / `@job` 데코레이터가 실행되면서 즉시 Registry에 등록
-- 새 파일 추가 시 `__init__.py` 수정 없이 자동 인식
+**How Auto-Discovery works**:
+- `discover_tasks()` / `discover_jobs()` recursively import all `.py` files within the package
+- `@task` / `@job` decorators execute and immediately register to the Registry
+- New files are automatically recognized without modifying `__init__.py`
 
 ---
 
@@ -242,29 +242,29 @@ async def process_item(item_id: str) -> None:
 ./void run api  # uvicorn with --reload
 ```
 
-**구조**: `app.py` → `lifespan` → `middleware` → `exception_handlers` → `routes`
+**Structure**: `app.py` → `lifespan` → `middleware` → `exception_handlers` → `routes`
 
 ### Worker (SQS Consumer)
 ```bash
 ./void run worker
 ```
 
-**구조**: `app.py` → `dependencies.initialize()` → `discover_tasks()` → `consumer.start()`
+**Structure**: `app.py` → `dependencies.initialize()` → `discover_tasks()` → `consumer.start()`
 
 ### CLI (Click)
 ```bash
-./void run job                    # 도움말 표시
-./void run job list               # 등록된 job 목록
-./void run job process-item --help                              # job 도움말
-./void run job process-item --item-id 507f1f77bcf86cd799439011  # job 실행
+./void run job                    # Show help
+./void run job list               # List registered jobs
+./void run job process-item --help                              # Job help
+./void run job process-item --item-id 507f1f77bcf86cd799439011  # Run job
 ```
 
-**구조**: `app.py` → `discover_jobs()` → `create_all_job_commands()` → 동적 Click Command 생성
-**특징**:
-- `@job` 데코레이터가 함수 시그니처를 분석하여 Click 옵션 자동 생성
-- snake_case 함수명 → kebab-case 커맨드명 변환
-- 함수 docstring이 `--help`에 표시됨
-- 새 파일 추가 시 `__init__.py` 수정 불필요
+**Structure**: `app.py` → `discover_jobs()` → `create_all_job_commands()` → Dynamic Click Command generation
+**Features**:
+- `@job` decorator analyzes function signature to auto-generate Click options
+- snake_case function name → kebab-case command name conversion
+- Function docstring is displayed in `--help`
+- No `__init__.py` modification needed when adding new files
 
 ---
 
@@ -280,7 +280,7 @@ async def process_item(item_id: str) -> None:
 
 ## Configuration
 
-환경변수는 `.env` 파일 또는 시스템 환경변수로 설정:
+Environment variables are set via `.env` file or system environment variables:
 
 ```bash
 # MongoDB
@@ -299,28 +299,28 @@ SQS_QUEUE_URL=https://sqs.ap-northeast-2.amazonaws.com/xxx/queue.fifo
 ## Adding New Features
 
 ### New Entity
-1. `domain/entities/xxx.py` - Entity 정의 (`create()` factory method 포함)
-2. `domain/ports/xxx.py` - Repository ABC 정의
-3. `domain/value_objects/xxx_enums.py` - Enum 정의 (필요시)
+1. `domain/entities/xxx.py` - Define entity (include `create()` factory method)
+2. `domain/ports/xxx.py` - Define repository ABC
+3. `domain/value_objects/xxx_enums.py` - Define enums (if needed)
 4. `adapters/mongodb/collections/xxx_adapter.py` - Collection adapter
-5. `adapters/repositories/mongodb/xxx.py` - Repository 구현
-6. `adapters/uow/mongo_unit_of_work.py` - UoW에 repository 추가
+5. `adapters/repositories/mongodb/xxx.py` - Repository implementation
+6. `adapters/uow/mongo_unit_of_work.py` - Add repository to UoW
 
 ### New API Endpoint
 1. `entrypoints/api/schemas/xxx.py` - Request/Response schemas
 2. `entrypoints/api/routes/xxx.py` - Route handlers
-3. `entrypoints/api/routes/__init__.py` - Router 등록
-4. `entrypoints/api/dependencies/services.py` - Service dependency 추가
+3. `entrypoints/api/routes/__init__.py` - Register router
+4. `entrypoints/api/dependencies/services.py` - Add service dependency
 
 ### New Worker Task
-1. `entrypoints/worker/tasks/xxx.py` - @task 데코레이터로 핸들러 정의
-   - `__init__.py` 수정 불필요 (Auto-discovery)
+1. `entrypoints/worker/tasks/xxx.py` - Define handler with @task decorator
+   - No `__init__.py` modification needed (Auto-discovery)
 
 ### New CLI Job
-1. `entrypoints/cli/jobs/xxx.py` - @job 데코레이터로 핸들러 정의
-   - `__init__.py` 수정 불필요 (Auto-discovery)
+1. `entrypoints/cli/jobs/xxx.py` - Define handler with @job decorator
+   - No `__init__.py` modification needed (Auto-discovery)
 
 ### New Exception
-1. `domain/exceptions.py` - `DomainError` 또는 적절한 기본 예외 상속
-2. `domain/__init__.py` - 예외 export 추가
-3. API Route에서 `try-except` + `HTTPException` 변환
+1. `domain/exceptions.py` - Inherit from `DomainError` or appropriate base exception
+2. `domain/__init__.py` - Add exception export
+3. Convert to `HTTPException` via `try-except` in API Route
